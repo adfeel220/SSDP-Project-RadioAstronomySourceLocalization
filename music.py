@@ -1,8 +1,13 @@
+## SSDP project implementation of Bluebild algorithm
+# Author: Chun-Tso Tsai
+# Date: 2022-05-17
+
+from readline import get_endidx
 import numpy as np
 from tqdm import tqdm
 
 
-def music(S, W, P, grid, wv, threshold):
+def music(S:np.ndarray, W:np.ndarray, P:np.ndarray, grid:np.ndarray, wv:float, threshold:float, get_eigen:bool=False):
     '''
     params:
     S: visibility matrix of one time frame. shape = (n_antenna, n_antenna)
@@ -13,7 +18,8 @@ def music(S, W, P, grid, wv, threshold):
     threshold: the threshold to choose leading eigenpairs
 
     return:
-    I: estimated intensity function of the grid
+    I: estimated intensity function of the grid. shape = (n_px, )
+    eigvals: the sorted eigenvalues comptued in the process.
     '''
     n_px = grid.shape[0]
 
@@ -37,10 +43,13 @@ def music(S, W, P, grid, wv, threshold):
     # Select the last eigenpairs (from K to end)
     last_eigvecs = eigvecs[:, K:]
     # The phase difference matrix
-    phase_shift = np.exp(-2j*np.pi/wv*(P @ grid.T))
+    phase_shift = np.exp(-2j*np.pi/wv*(P @ grid.T)) # shape = (n_antennas, n_px)
     intensity = np.zeros(n_px)
     for px in range(n_px):
         intensity[px] = 1 / np.real(phase_shift[:,px].conj().T @ W @ last_eigvecs @ last_eigvecs.conj().T @ W.conj().T @ phase_shift[:,px])
+
+    if get_eigen:
+        return intensity, eigvals
 
     return intensity
     
@@ -53,11 +62,11 @@ def music_long_exposure(S:np.ndarray, W:np.ndarray, P:np.ndarray, grid:np.ndarra
     P: antenna positions. shape = (n_timeframes, n_antenna, 3)
     grid: the grid of the sky region in the estimation area. shape = (n_px, 3)
     wv: wavelength of the observation
-    threshold: the threshold to choose leading eigenpairs
+    threshold: the threshold to choose leading eigenpairs. value in [0,1]
     time_length: the number of time frames to average the signal. None to use all time frames
 
     return:
-    I: estimated intensity function of the grid
+    I: estimated intensity function of the grid. shape = (n_px, )
 
     Example:
     >>> intensity_music = music_long_exposure(data['S'], data['W'], data['XYZ'], data['px_grid'], data['lambda_'], 0.7, 20)
